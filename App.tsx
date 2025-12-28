@@ -5,7 +5,7 @@ import { GameStatus, LevelConfig, LeaderboardEntry } from './types';
 import { INITIAL_LEVEL } from './constants';
 import { getOracleAdvice, getNextLevelConfig } from './services/geminiService';
 import { soundService } from './services/soundService';
-import { Target, Zap, Trophy, RefreshCw, Play, Sparkles, Gauge, Wind, Medal, Calendar, User, Crown, Pause, Volume2, VolumeX } from 'lucide-react';
+import { Target, Zap, Trophy, RefreshCw, Play, Sparkles, Gauge, Wind, Medal, Calendar, User, Crown, Pause, Volume2, VolumeX, FastForward, Award } from 'lucide-react';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<GameStatus>(GameStatus.START);
@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const [advice, setAdvice] = useState("Pull back the string and let fate fly!");
   const [loading, setLoading] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
+  const [balloonSpeedMultiplier, setBalloonSpeedMultiplier] = useState(1.0);
   const [manualWind, setManualWind] = useState(0.0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [playerName, setPlayerName] = useState('Ace');
@@ -74,8 +75,8 @@ const App: React.FC = () => {
     setLoading(true);
     setStatus(GameStatus.LEVEL_COMPLETE);
     updateLeaderboard(score, level.number);
-    const nextLevelData = await getNextLevelConfig(level.number);
-    setLevel({ ...nextLevelData, number: level.number + 1 });
+    const nextLevelConfig = await getNextLevelConfig(level.number);
+    setLevel({ ...nextLevelConfig, number: level.number + 1 });
     setLoading(false);
     fetchAdvice();
   };
@@ -112,6 +113,21 @@ const App: React.FC = () => {
       {/* HUD */}
       {(status === GameStatus.PLAYING || status === GameStatus.PAUSED) && (
         <div className="absolute top-4 left-4 right-4 z-10 flex flex-col md:flex-row justify-between items-start pointer-events-none gap-4">
+          
+          {/* Real-time Arcade High Score Badge (Center) */}
+          <div className="absolute left-1/2 -translate-x-1/2 -top-1 pointer-events-auto">
+             <div className={`bg-amber-100/90 backdrop-blur border-2 border-amber-400 px-6 py-2 rounded-b-2xl shadow-xl flex items-center gap-3 transition-transform duration-300 ${score > personalBest ? 'scale-110 border-amber-500 bg-amber-200' : ''}`}>
+                <Award className={`w-5 h-5 ${score > personalBest ? 'text-amber-600 animate-bounce' : 'text-amber-500'}`} />
+                <div className="flex flex-col items-center">
+                   <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest leading-none mb-1">HI-SCORE</span>
+                   <span className="text-xl font-black text-amber-900 leading-none">{Math.max(score, personalBest)}</span>
+                </div>
+                {score > personalBest && score > 0 && (
+                   <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full animate-pulse">NEW RECORD!</div>
+                )}
+             </div>
+          </div>
+
           <div className="flex flex-col md:flex-row gap-3 pointer-events-auto items-stretch">
             {/* Scoreboard */}
             <div className="bg-white/80 backdrop-blur shadow-lg rounded-2xl p-4 flex gap-4 md:gap-5 items-center">
@@ -136,29 +152,18 @@ const App: React.FC = () => {
                 <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Goal</span>
                 <span className="text-xl md:text-2xl font-bold text-indigo-900 leading-tight">{level.targetScore}</span>
               </div>
-              {personalBest > 0 && (
-                <>
-                  <div className="w-px h-8 bg-sky-200" />
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1">
-                      <Crown className="w-2.5 h-2.5" /> Best
-                    </span>
-                    <span className="text-xl md:text-2xl font-bold text-amber-900 leading-tight">{personalBest}</span>
-                  </div>
-                </>
-              )}
             </div>
 
             {/* Sliders */}
             <div className="flex flex-row gap-2 h-full">
-                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[140px]">
+                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[120px]">
                    <div className="flex items-center gap-2 mb-1">
                       <Gauge className="w-3.5 h-3.5 text-sky-500" />
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Power</span>
                       <span className="ml-auto text-[10px] text-sky-600 font-bold">{speedMultiplier.toFixed(1)}x</span>
                    </div>
                    <input 
-                      type="range" min="0.5" max="2.0" step="0.1" value={speedMultiplier} 
+                      type="range" min="0.5" max="1.5" step="0.1" value={speedMultiplier} 
                       onChange={(e) => {
                         setSpeedMultiplier(parseFloat(e.target.value));
                         soundService.playStretch();
@@ -166,7 +171,22 @@ const App: React.FC = () => {
                       className="w-full h-1.5 bg-sky-100 rounded-lg appearance-none cursor-pointer accent-sky-500 pointer-events-auto"
                    />
                 </div>
-                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[140px]">
+                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[120px]">
+                   <div className="flex items-center gap-2 mb-1">
+                      <FastForward className="w-3.5 h-3.5 text-orange-500" />
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">B-Speed</span>
+                      <span className="ml-auto text-[10px] text-orange-600 font-bold">{balloonSpeedMultiplier.toFixed(1)}x</span>
+                   </div>
+                   <input 
+                      type="range" min="1.0" max="3.0" step="0.1" value={balloonSpeedMultiplier} 
+                      onChange={(e) => {
+                        setBalloonSpeedMultiplier(parseFloat(e.target.value));
+                        soundService.playStretch();
+                      }}
+                      className="w-full h-1.5 bg-sky-100 rounded-lg appearance-none cursor-pointer accent-orange-500 pointer-events-auto"
+                   />
+                </div>
+                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[120px]">
                    <div className="flex items-center gap-2 mb-1">
                       <Wind className="w-3.5 h-3.5 text-sky-500" />
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Wind</span>
@@ -219,6 +239,7 @@ const App: React.FC = () => {
         score={score}
         shotsUsed={shotsUsed}
         speedMultiplier={speedMultiplier}
+        balloonSpeedMultiplier={balloonSpeedMultiplier}
         manualWind={manualWind}
       />
 
@@ -230,8 +251,15 @@ const App: React.FC = () => {
                <Target className="w-10 h-10 text-sky-600" />
             </div>
             <h1 className="text-4xl md:text-5xl font-black text-sky-900 mb-1">Fahdi</h1>
-            <h2 className="text-xl md:text-2xl font-bold text-sky-400 mb-6 italic leading-none">Slingshot</h2>
+            <h2 className="text-xl md:text-2xl font-bold text-sky-400 mb-2 italic leading-none">Slingshot</h2>
             
+            {personalBest > 0 && (
+              <div className="mb-6 flex items-center justify-center gap-2 bg-amber-50 py-1.5 px-6 rounded-full border-2 border-amber-300 w-fit mx-auto shadow-sm">
+                <Award className="w-5 h-5 text-amber-500" />
+                <span className="text-xs font-black text-amber-700 uppercase tracking-widest">HI-SCORE: {personalBest}</span>
+              </div>
+            )}
+
             <div className="bg-slate-50 p-4 rounded-2xl mb-8 border border-slate-100 text-left">
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Pilot Name</label>
               <div className="relative">
@@ -292,9 +320,9 @@ const App: React.FC = () => {
                     <h3 className="text-base font-bold text-slate-700 truncate">{level.themeName || 'Mystery Skies'}</h3>
                     <div className="flex flex-col gap-1 mt-2">
                         <div className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold text-slate-500 border border-slate-100">Target: {level.targetScore}</div>
-                        {score >= personalBest && (
+                        {score >= personalBest && score > 0 && (
                            <div className="bg-amber-50 text-amber-600 px-2 py-1 rounded-lg text-[9px] font-black border border-amber-100 flex items-center gap-1">
-                              <Crown className="w-2 h-2" /> NEW PERSONAL BEST!
+                              <Award className="w-2 h-2" /> NEW HI-SCORE!
                            </div>
                         )}
                     </div>
@@ -337,12 +365,12 @@ const App: React.FC = () => {
             
             <div className="bg-slate-50 p-6 rounded-2xl mb-6 relative overflow-hidden">
                {score === personalBest && score > 0 && (
-                  <div className="absolute -right-6 -top-2 bg-amber-400 text-white text-[8px] font-black py-1 px-8 rotate-45 shadow-sm">NEW BEST</div>
+                  <div className="absolute -right-6 -top-2 bg-amber-400 text-white text-[8px] font-black py-1 px-8 rotate-45 shadow-sm uppercase">New Hi-Score</div>
                )}
                <span className="text-slate-400 uppercase text-[10px] font-black tracking-widest block mb-1">Final Score</span>
                <span className="text-5xl font-black text-slate-800">{score}</span>
                {personalBest > score && (
-                 <p className="text-[10px] text-slate-400 mt-2 font-bold">Best: {personalBest}</p>
+                 <p className="text-[10px] text-slate-400 mt-2 font-bold">HI-SCORE: {personalBest}</p>
                )}
             </div>
 

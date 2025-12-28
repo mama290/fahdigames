@@ -14,11 +14,12 @@ interface GameCanvasProps {
   onLevelComplete: () => void;
   onGameOver: () => void;
   speedMultiplier: number;
+  balloonSpeedMultiplier: number;
   manualWind: number;
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  status, level, onScoreUpdate, onShot, onLevelComplete, onGameOver, score, shotsUsed, speedMultiplier, manualWind
+  status, level, onScoreUpdate, onShot, onLevelComplete, onGameOver, score, shotsUsed, speedMultiplier, balloonSpeedMultiplier, manualWind
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number | null>(null);
@@ -166,7 +167,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     balloons.current.forEach(b => {
       if (!b.isPopping) {
-        b.y -= b.speed;
+        b.y -= b.speed * balloonSpeedMultiplier;
         b.x += Math.sin(Date.now() / 500 + b.waveOffset) * 0.5 + level.wind + (manualWind * 0.5);
         
         if (b.y < -100) {
@@ -406,7 +407,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) draw(ctx);
     requestRef.current = requestAnimationFrame(animate);
-  }, [status, level, score, shotsUsed, speedMultiplier, manualWind]);
+  }, [status, level, score, shotsUsed, speedMultiplier, balloonSpeedMultiplier, manualWind]);
 
   useEffect(() => {
     const handleResize = () => {
