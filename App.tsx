@@ -129,7 +129,7 @@ const App: React.FC = () => {
             <div className="w-24 h-24 bg-sky-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                <Target className="w-12 h-12 text-sky-600" />
             </div>
-            <h1 className="text-5xl font-black text-sky-900 mb-2">Skybound</h1>
+            <h1 className="text-5xl font-black text-sky-900 mb-2">Fahdi</h1>
             <h2 className="text-2xl font-bold text-sky-400 mb-6 italic">Slingshot</h2>
             <p className="text-slate-600 mb-8 font-medium">Pop floating balloons to advance! The Balloon Oracle is watching your every shot.</p>
             <button 
