@@ -2,6 +2,7 @@
 export enum GameStatus {
   START = 'START',
   PLAYING = 'PLAYING',
+  PAUSED = 'PAUSED',
   LEVEL_COMPLETE = 'LEVEL_COMPLETE',
   GAME_OVER = 'GAME_OVER'
 }
@@ -57,6 +58,12 @@ export interface LevelConfig {
   targetScore: number;
   shotsAvailable: number;
   wind: number;
-  // Added themeName to fix property missing error in App.tsx
   themeName: string;
+}
+
+export interface LeaderboardEntry {
+  name: string;
+  score: number;
+  date: string;
+  level: number;
 }
