@@ -39,15 +39,22 @@ const App: React.FC = () => {
   const [personalBest, setPersonalBest] = useState(0);
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
 
+  // Robust data initialization
   useEffect(() => {
-    const savedLeaderboard = localStorage.getItem('fahdi_slingshot_leaderboard');
-    if (savedLeaderboard) setLeaderboard(JSON.parse(savedLeaderboard));
+    try {
+      const savedLeaderboard = localStorage.getItem('fahdi_slingshot_leaderboard');
+      if (savedLeaderboard) setLeaderboard(JSON.parse(savedLeaderboard));
 
-    const savedName = localStorage.getItem('fahdi_slingshot_player_name');
-    if (savedName) setPlayerName(savedName);
+      const savedName = localStorage.getItem('fahdi_slingshot_player_name');
+      if (savedName) setPlayerName(savedName);
 
-    const savedBest = localStorage.getItem('fahdi_slingshot_personal_best');
-    if (savedBest) setPersonalBest(parseInt(savedBest, 10));
+      const savedBest = localStorage.getItem('fahdi_slingshot_personal_best');
+      if (savedBest) setPersonalBest(parseInt(savedBest, 10) || 0);
+    } catch (e) {
+      console.warn("Failed to load game data, resetting to defaults", e);
+      localStorage.removeItem('fahdi_slingshot_leaderboard');
+      localStorage.removeItem('fahdi_slingshot_personal_best');
+    }
   }, []);
 
   useEffect(() => {
@@ -59,9 +66,7 @@ const App: React.FC = () => {
   }, [status, isMusicEnabled]);
 
   const updateLeaderboard = useCallback((finalScore: number, finalLevel: number) => {
-    let currentBest = personalBest;
     if (finalScore > personalBest) {
-      currentBest = finalScore;
       setPersonalBest(finalScore);
       localStorage.setItem('fahdi_slingshot_personal_best', finalScore.toString());
     }
@@ -83,8 +88,7 @@ const App: React.FC = () => {
   }, [playerName, personalBest]);
 
   const cycleAdvice = () => {
-    const randomTip = STATIC_ADVICE[Math.floor(Math.random() * STATIC_ADVICE.length)];
-    setAdvice(randomTip);
+    setAdvice(STATIC_ADVICE[Math.floor(Math.random() * STATIC_ADVICE.length)]);
   };
 
   const handleLevelComplete = () => {
@@ -93,16 +97,16 @@ const App: React.FC = () => {
     setStatus(GameStatus.LEVEL_COMPLETE);
     updateLeaderboard(score, level.number);
     
-    // Local deterministic level generation
+    // Standalone mathematical progression
     const nextNum = level.number + 1;
     const nextLevelConfig: LevelConfig = {
       number: nextNum,
       balloonCount: Math.min(25, 8 + Math.floor(nextNum * 1.5)),
-      balloonSpeedRange: [1 + nextNum * 0.15, 2 + nextNum * 0.25] as [number, number],
-      targetScore: level.targetScore + (2000 * nextNum),
-      shotsAvailable: 20 + (nextNum * 3),
+      balloonSpeedRange: [1 + nextNum * 0.1, 2 + nextNum * 0.2] as [number, number],
+      targetScore: level.targetScore + (2500 * nextNum),
+      shotsAvailable: 20 + (nextNum * 2),
       wind: (Math.random() * 4 - 2),
-      themeName: THEMES[nextNum % THEMES.length] || `Level ${nextNum}`,
+      themeName: THEMES[nextNum % THEMES.length],
     };
     
     setTimeout(() => {
@@ -141,34 +145,26 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-sky-300">
+      {/* Active Game HUD */}
       {(status === GameStatus.PLAYING || status === GameStatus.PAUSED) && (
         <div className="absolute top-4 left-4 right-4 z-10 flex flex-col md:flex-row justify-between items-start pointer-events-none gap-4">
           
+          {/* Arcade High Score Badge */}
           <div className="absolute left-1/2 -translate-x-1/2 -top-1 pointer-events-auto">
-             <div className={`bg-amber-100/90 backdrop-blur border-2 border-amber-400 px-6 py-2 rounded-b-2xl shadow-xl flex items-center gap-3 transition-transform duration-300 ${score > personalBest ? 'scale-110 border-amber-500 bg-amber-200' : ''}`}>
+             <div className={`bg-amber-100/90 backdrop-blur border-2 border-amber-400 px-6 py-2 rounded-b-2xl shadow-xl flex items-center gap-3 transition-transform duration-300 ${score > personalBest && score > 0 ? 'scale-110 border-amber-500 bg-amber-200' : ''}`}>
                 <Award className={`w-5 h-5 ${score > personalBest ? 'text-amber-600 animate-bounce' : 'text-amber-500'}`} />
                 <div className="flex flex-col items-center">
                    <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest leading-none mb-1">HI-SCORE</span>
                    <span className="text-xl font-black text-amber-900 leading-none">{Math.max(score, personalBest)}</span>
                 </div>
-                {score > personalBest && score > 0 && (
-                   <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full animate-pulse">NEW RECORD!</div>
-                )}
              </div>
           </div>
 
           <div className="flex flex-col md:flex-row gap-3 pointer-events-auto items-stretch">
-            <div className="bg-white/80 backdrop-blur shadow-lg rounded-2xl p-4 flex gap-4 md:gap-5 items-center">
+            <div className="bg-white/80 backdrop-blur shadow-lg rounded-2xl p-4 flex gap-4 items-center">
               <div className="flex flex-col">
                 <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider">Level</span>
                 <span className="text-xl md:text-2xl font-bold text-sky-900 leading-tight">{level.number}</span>
-              </div>
-              <div className="w-px h-8 bg-sky-200" />
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Shots</span>
-                <span className="text-xl md:text-2xl font-bold text-rose-900 leading-tight">
-                  {Math.max(0, level.shotsAvailable - shotsUsed)}
-                </span>
               </div>
               <div className="w-px h-8 bg-sky-200" />
               <div className="flex flex-col">
@@ -177,17 +173,18 @@ const App: React.FC = () => {
               </div>
               <div className="w-px h-8 bg-sky-200" />
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Goal</span>
-                <span className="text-xl md:text-2xl font-bold text-indigo-900 leading-tight">{level.targetScore}</span>
+                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Shots</span>
+                <span className="text-xl md:text-2xl font-bold text-rose-900 leading-tight">
+                  {Math.max(0, level.shotsAvailable - shotsUsed)}
+                </span>
               </div>
             </div>
 
             <div className="flex flex-row gap-2 h-full">
-                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[120px]">
+                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[140px]">
                    <div className="flex items-center gap-2 mb-1">
                       <Gauge className="w-3.5 h-3.5 text-sky-500" />
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Power</span>
-                      <span className="ml-auto text-[10px] text-sky-600 font-bold">{speedMultiplier.toFixed(1)}x</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Stretch Power</span>
                    </div>
                    <input 
                       type="range" min="0.5" max="1.5" step="0.1" value={speedMultiplier} 
@@ -198,11 +195,10 @@ const App: React.FC = () => {
                       className="w-full h-1.5 bg-sky-100 rounded-lg appearance-none cursor-pointer accent-sky-500 pointer-events-auto"
                    />
                 </div>
-                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[120px]">
+                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[140px]">
                    <div className="flex items-center gap-2 mb-1">
                       <Wind className="w-3.5 h-3.5 text-sky-500" />
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Wind</span>
-                      <span className="ml-auto text-[10px] text-sky-600 font-bold">{manualWind > 0 ? '→' : manualWind < 0 ? '←' : ''} {Math.abs(manualWind).toFixed(1)}</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Wind {manualWind > 0 ? '→' : manualWind < 0 ? '←' : ''}</span>
                    </div>
                    <input 
                       type="range" min="-3.0" max="3.0" step="0.2" value={manualWind} 
@@ -229,7 +225,7 @@ const App: React.FC = () => {
             >
               <Pause className="w-6 h-6" />
             </button>
-            <div className="bg-indigo-900/90 text-white p-3 rounded-2xl shadow-2xl border-2 border-indigo-400 max-w-[250px]">
+            <div className="bg-indigo-900/90 text-white p-3 rounded-2xl shadow-2xl border-2 border-indigo-400 max-w-[200px]">
                <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
                   <span className="text-[10px] uppercase font-bold tracking-tighter text-indigo-300">Sensei M.Fahad</span>
@@ -240,6 +236,7 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Main Game Area */}
       <GameCanvas 
         status={status}
         level={level}
@@ -253,9 +250,10 @@ const App: React.FC = () => {
         manualWind={manualWind}
       />
 
+      {/* Start Screen */}
       {status === GameStatus.START && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl text-center w-full max-w-md border-b-8 border-sky-100">
+          <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl text-center w-full max-w-md border-b-8 border-sky-100 animate-in fade-in zoom-in duration-300">
             <div className="w-20 h-20 bg-sky-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
                <Target className="w-10 h-10 text-sky-600" />
             </div>
@@ -265,7 +263,7 @@ const App: React.FC = () => {
             {personalBest > 0 && (
               <div className="mb-6 flex items-center justify-center gap-2 bg-amber-50 py-1.5 px-6 rounded-full border-2 border-amber-300 w-fit mx-auto shadow-sm">
                 <Award className="w-5 h-5 text-amber-500" />
-                <span className="text-xs font-black text-amber-700 uppercase tracking-widest">HI-SCORE: {personalBest}</span>
+                <span className="text-xs font-black text-amber-700 uppercase tracking-widest">Personal Best: {personalBest}</span>
               </div>
             )}
 
@@ -285,101 +283,31 @@ const App: React.FC = () => {
 
             <button 
               onClick={startGame}
-              className="group relative w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-4 px-8 rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-[0_6px_0_0_rgba(14,165,233,1)] hover:shadow-[0_4px_0_0_rgba(14,165,233,1)]"
+              className="group relative w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-4 px-8 rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-[0_6px_0_0_rgba(14,165,233,1)]"
             >
-              <span className="flex items-center justify-center gap-2 text-xl">
-                <Play className="fill-current w-5 h-5" /> TAKE FLIGHT
+              <span className="flex items-center justify-center gap-2 text-xl tracking-wide uppercase">
+                <Play className="fill-current w-5 h-5" /> START MISSION
               </span>
             </button>
           </div>
         </div>
       )}
 
-      {status === GameStatus.PAUSED && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/30 backdrop-blur-md">
-          <div className="bg-white p-10 rounded-[3rem] shadow-2xl text-center border-b-8 border-sky-100">
-            <h2 className="text-4xl font-black text-sky-900 mb-8">Game Paused</h2>
-            <button 
-              onClick={togglePause}
-              className="group bg-sky-500 hover:bg-sky-400 text-white font-bold py-6 px-12 rounded-3xl transition-all hover:scale-110 shadow-[0_8px_0_0_rgba(14,165,233,1)]"
-            >
-              <Play className="w-12 h-12 fill-current" />
-            </button>
-            <p className="mt-8 text-slate-500 font-bold uppercase tracking-widest">Click to Resume</p>
-          </div>
-        </div>
-      )}
-
-      {status === GameStatus.LEVEL_COMPLETE && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-sky-900/60 backdrop-blur-md overflow-y-auto py-10 px-4">
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl text-center w-full max-w-lg">
-            <div className="flex items-center justify-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
-                    <Trophy className="w-8 h-8 text-emerald-600" />
-                </div>
-                <div className="text-left">
-                    <h2 className="text-3xl font-black text-slate-800">Clear!</h2>
-                    <p className="text-emerald-600 font-bold text-xl leading-none">Score: {score}</p>
-                </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="bg-slate-50 p-4 rounded-2xl text-left border border-slate-100">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Up Next</p>
-                    <h3 className="text-base font-bold text-slate-700 truncate">{level.themeName}</h3>
-                    <div className="flex flex-col gap-1 mt-2">
-                        <div className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold text-slate-500 border border-slate-100">Target: {level.targetScore}</div>
-                        {score >= personalBest && score > 0 && (
-                           <div className="bg-amber-50 text-amber-600 px-2 py-1 rounded-lg text-[9px] font-black border border-amber-100 flex items-center gap-1">
-                              <Award className="w-2 h-2" /> NEW HI-SCORE!
-                           </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="bg-indigo-50/50 p-4 rounded-2xl text-left border border-indigo-100">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Medal className="w-4 h-4 text-indigo-500" />
-                        <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Hall of Fame</p>
-                    </div>
-                    <div className="space-y-1.5">
-                        {leaderboard.map((entry, i) => (
-                            <div key={i} className={`flex items-center justify-between text-[11px] p-1 rounded ${entry.name === playerName && entry.score === score ? 'bg-indigo-100/50' : ''}`}>
-                                <span className={`font-bold truncate max-w-[80px] ${i === 0 ? 'text-amber-500' : 'text-slate-500'}`}>
-                                    #{i+1} {entry.name}
-                                </span>
-                                <span className="font-mono text-indigo-600 font-bold">{entry.score}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            <button 
-              onClick={nextLevel}
-              disabled={loading}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-4 px-8 rounded-2xl transition-all hover:scale-105 shadow-[0_6px_0_0_#059669] active:shadow-none active:translate-y-[6px] flex items-center justify-center gap-2"
-            >
-              {loading ? <RefreshCw className="w-6 h-6 animate-spin" /> : <><Zap className="fill-current w-5 h-5" /> CONTINUE</>}
-            </button>
-          </div>
-        </div>
-      )}
-
+      {/* Game Over Screen */}
       {status === GameStatus.GAME_OVER && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-rose-900/60 backdrop-blur-md overflow-y-auto py-10 px-4">
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl text-center w-full max-w-sm">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-rose-900/60 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl text-center w-full max-w-sm border-b-8 border-rose-100">
             <h2 className="text-3xl font-black text-slate-800 mb-2">Grounded!</h2>
             <p className="text-rose-600 font-bold mb-6 italic leading-none">The balloons escaped this time.</p>
             
             <div className="bg-slate-50 p-6 rounded-2xl mb-6 relative overflow-hidden">
-               {score === personalBest && score > 0 && (
+               {score >= personalBest && score > 0 && (
                   <div className="absolute -right-6 -top-2 bg-amber-400 text-white text-[8px] font-black py-1 px-8 rotate-45 shadow-sm uppercase">New Hi-Score</div>
                )}
                <span className="text-slate-400 uppercase text-[10px] font-black tracking-widest block mb-1">Final Score</span>
                <span className="text-5xl font-black text-slate-800">{score}</span>
                {personalBest > score && (
-                 <p className="text-[10px] text-slate-400 mt-2 font-bold">HI-SCORE: {personalBest}</p>
+                 <p className="text-[10px] text-slate-400 mt-2 font-bold">BEST: {personalBest}</p>
                )}
             </div>
 
@@ -389,25 +317,65 @@ const App: React.FC = () => {
                     <p className="text-[10px] text-indigo-400 font-bold uppercase">Hall of Fame</p>
                 </div>
                 <div className="space-y-1.5">
-                    {leaderboard.map((entry, i) => (
+                    {leaderboard.length > 0 ? leaderboard.map((entry, i) => (
                         <div key={i} className={`flex items-center justify-between text-[11px] p-1 rounded ${entry.name === playerName && entry.score === score ? 'bg-indigo-100/50' : ''}`}>
                             <div className="flex items-center gap-2 truncate">
                                 <span className={`font-bold ${i === 0 ? 'text-amber-500' : 'text-slate-500'}`}>#{i+1}</span>
                                 <span className="text-slate-600 truncate">{entry.name}</span>
-                                <span className="text-[9px] text-slate-400 flex items-center gap-0.5"><Calendar className="w-2 h-2"/>{entry.date}</span>
                             </div>
                             <span className="font-mono text-indigo-600 font-bold ml-2">{entry.score}</span>
                         </div>
-                    ))}
+                    )) : <p className="text-[10px] text-slate-400 text-center py-2">No entries yet.</p>}
                 </div>
             </div>
 
             <button 
               onClick={startGame}
-              className="w-full bg-rose-500 hover:bg-rose-400 text-white font-bold py-4 px-8 rounded-2xl transition-all hover:scale-105 shadow-[0_6px_0_0_#e11d48] active:shadow-none active:translate-y-[6px] flex items-center justify-center gap-2"
+              className="w-full bg-rose-500 hover:bg-rose-400 text-white font-bold py-4 px-8 rounded-2xl transition-all hover:scale-105 shadow-[0_6px_0_0_#e11d48] active:translate-y-[6px] active:shadow-none flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-6 h-6" /> RETRY MISSION
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Level Complete Screen */}
+      {status === GameStatus.LEVEL_COMPLETE && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-emerald-900/60 backdrop-blur-md p-4">
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl text-center w-full max-w-sm border-b-8 border-emerald-100 animate-in slide-in-from-bottom-8 duration-500">
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trophy className="w-10 h-10 text-emerald-600" />
+            </div>
+            <h2 className="text-3xl font-black text-slate-800 mb-1">Clear!</h2>
+            <p className="text-emerald-600 font-bold mb-6">Level {level.number - 1} Mastered</p>
+            
+            <div className="bg-slate-50 p-6 rounded-2xl mb-8">
+                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block mb-1">Current Score</span>
+                <span className="text-4xl font-black text-slate-800">{score}</span>
+            </div>
+
+            <button 
+              onClick={nextLevel}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-4 px-8 rounded-2xl transition-all hover:scale-105 shadow-[0_6px_0_0_#059669] flex items-center justify-center gap-2 uppercase tracking-wide"
+            >
+              <Zap className="fill-current w-5 h-5" /> NEXT ALTITUDE
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pause Screen */}
+      {status === GameStatus.PAUSED && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/30 backdrop-blur-md">
+          <div className="bg-white p-10 rounded-[3rem] shadow-2xl text-center border-b-8 border-sky-100">
+            <h2 className="text-4xl font-black text-sky-900 mb-8">Paused</h2>
+            <button 
+              onClick={togglePause}
+              className="group bg-sky-500 hover:bg-sky-400 text-white font-bold p-8 rounded-full transition-all hover:scale-110 shadow-[0_8px_0_0_rgba(14,165,233,1)]"
+            >
+              <Play className="w-12 h-12 fill-current" />
+            </button>
+            <p className="mt-8 text-slate-400 font-bold uppercase tracking-widest">Click to Resume</p>
           </div>
         </div>
       )}
