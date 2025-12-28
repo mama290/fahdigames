@@ -7,7 +7,7 @@ export const getOracleAdvice = async (score: number, shotsLeft: number, level: n
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `You are the "Balloon Oracle", a wise but whimsical game sensei. The player is playing a slingshot balloon popping game.
+      contents: `You are "M.Fahad", a wise but whimsical game sensei. The player is playing a slingshot balloon popping game.
       Current Stats:
       - Score: ${score}
       - Shots Left: ${shotsLeft}

@@ -116,11 +116,11 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Oracle Advice (Top Right) - Advice text removed as requested */}
+          {/* Oracle Advice (Top Right) */}
           <div className="bg-indigo-900/90 text-white p-3 rounded-2xl shadow-2xl border-2 border-indigo-400 pointer-events-auto">
              <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-yellow-400" />
-                <span className="text-[10px] uppercase font-bold tracking-tighter text-indigo-300">The Balloon Oracle</span>
+                <span className="text-[10px] uppercase font-bold tracking-tighter text-indigo-300">M.Fahad</span>
              </div>
           </div>
         </div>
