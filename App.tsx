@@ -3,26 +3,42 @@ import React, { useState, useEffect, useCallback } from 'react';
 import GameCanvas from './components/GameCanvas';
 import { GameStatus, LevelConfig, LeaderboardEntry } from './types';
 import { INITIAL_LEVEL } from './constants';
-import { getOracleAdvice, getNextLevelConfig } from './services/geminiService';
 import { soundService } from './services/soundService';
-import { Target, Zap, Trophy, RefreshCw, Play, Sparkles, Gauge, Wind, Medal, Calendar, User, Crown, Pause, Volume2, VolumeX, FastForward, Award } from 'lucide-react';
+import { Target, Zap, Trophy, RefreshCw, Play, Sparkles, Gauge, Wind, Medal, Calendar, User, Pause, Volume2, VolumeX, Award } from 'lucide-react';
+
+const STATIC_ADVICE = [
+  "Pull back the string and let fate fly!",
+  "The wind is a fickle friend. Adjust your aim.",
+  "Small balloons are worth the most. Aim small, miss small.",
+  "Patience is the archer's greatest arrow.",
+  "The trajectory is clear if your mind is still.",
+  "Even a missed shot teaches you the path of the next.",
+  "Trust the slingshot; it knows the way to the sky.",
+  "Gravity is the only constant. Respect its pull.",
+  "Balloons are like dreams—pop them to make room for more!",
+  "A steady hand wins the highest altitude."
+];
+
+const THEMES = [
+  "Sunny Skies", "Morning Mist", "Cotton Candy Clouds", "Golden Hour", 
+  "Twilight Peak", "Midnight Breeze", "Stormy Vista", "Stratosphere", 
+  "Aurora Reach", "Void Horizon"
+];
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<GameStatus>(GameStatus.START);
   const [score, setScore] = useState(0);
-  const [level, setLevel] = useState<LevelConfig>({ ...INITIAL_LEVEL, themeName: 'Sunny Skies' });
+  const [level, setLevel] = useState<LevelConfig>({ ...INITIAL_LEVEL, themeName: THEMES[0] });
   const [shotsUsed, setShotsUsed] = useState(0);
-  const [advice, setAdvice] = useState("Pull back the string and let fate fly!");
+  const [advice, setAdvice] = useState(STATIC_ADVICE[0]);
   const [loading, setLoading] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
-  const [balloonSpeedMultiplier, setBalloonSpeedMultiplier] = useState(1.0);
   const [manualWind, setManualWind] = useState(0.0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [playerName, setPlayerName] = useState('Ace');
   const [personalBest, setPersonalBest] = useState(0);
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
 
-  // Load persistence data on mount
   useEffect(() => {
     const savedLeaderboard = localStorage.getItem('fahdi_slingshot_leaderboard');
     if (savedLeaderboard) setLeaderboard(JSON.parse(savedLeaderboard));
@@ -34,7 +50,6 @@ const App: React.FC = () => {
     if (savedBest) setPersonalBest(parseInt(savedBest, 10));
   }, []);
 
-  // Music management
   useEffect(() => {
     if (isMusicEnabled && (status === GameStatus.PLAYING)) {
       soundService.startBGM();
@@ -44,7 +59,9 @@ const App: React.FC = () => {
   }, [status, isMusicEnabled]);
 
   const updateLeaderboard = useCallback((finalScore: number, finalLevel: number) => {
+    let currentBest = personalBest;
     if (finalScore > personalBest) {
+      currentBest = finalScore;
       setPersonalBest(finalScore);
       localStorage.setItem('fahdi_slingshot_personal_best', finalScore.toString());
     }
@@ -65,42 +82,56 @@ const App: React.FC = () => {
     });
   }, [playerName, personalBest]);
 
-  const fetchAdvice = async () => {
-    const msg = await getOracleAdvice(score, level.shotsAvailable - shotsUsed, level.number);
-    setAdvice(msg);
+  const cycleAdvice = () => {
+    const randomTip = STATIC_ADVICE[Math.floor(Math.random() * STATIC_ADVICE.length)];
+    setAdvice(randomTip);
   };
 
-  const handleLevelComplete = async () => {
+  const handleLevelComplete = () => {
     soundService.playWin();
     setLoading(true);
     setStatus(GameStatus.LEVEL_COMPLETE);
     updateLeaderboard(score, level.number);
-    const nextLevelConfig = await getNextLevelConfig(level.number);
-    setLevel({ ...nextLevelConfig, number: level.number + 1 });
-    setLoading(false);
-    fetchAdvice();
+    
+    // Local deterministic level generation
+    const nextNum = level.number + 1;
+    const nextLevelConfig: LevelConfig = {
+      number: nextNum,
+      balloonCount: Math.min(25, 8 + Math.floor(nextNum * 1.5)),
+      balloonSpeedRange: [1 + nextNum * 0.15, 2 + nextNum * 0.25] as [number, number],
+      targetScore: level.targetScore + (2000 * nextNum),
+      shotsAvailable: 20 + (nextNum * 3),
+      wind: (Math.random() * 4 - 2),
+      themeName: THEMES[nextNum % THEMES.length] || `Level ${nextNum}`,
+    };
+    
+    setTimeout(() => {
+      setLevel(nextLevelConfig);
+      setLoading(false);
+      cycleAdvice();
+    }, 500);
   };
 
   const handleGameOver = () => {
     soundService.playLose();
     setStatus(GameStatus.GAME_OVER);
     updateLeaderboard(score, level.number);
-    fetchAdvice();
+    cycleAdvice();
   };
 
   const startGame = () => {
     localStorage.setItem('fahdi_slingshot_player_name', playerName);
     setScore(0);
     setShotsUsed(0);
-    setLevel({ ...INITIAL_LEVEL, themeName: 'Sunny Skies' });
+    setLevel({ ...INITIAL_LEVEL, themeName: THEMES[0] });
     setStatus(GameStatus.PLAYING);
-    fetchAdvice();
+    cycleAdvice();
   };
 
   const nextLevel = () => {
     setShotsUsed(0);
     setStatus(GameStatus.PLAYING);
-    fetchAdvice();
+    cycleAdvice();
   };
 
   const togglePause = () => {
@@ -110,11 +141,9 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-sky-300">
-      {/* HUD */}
       {(status === GameStatus.PLAYING || status === GameStatus.PAUSED) && (
         <div className="absolute top-4 left-4 right-4 z-10 flex flex-col md:flex-row justify-between items-start pointer-events-none gap-4">
           
-          {/* Real-time Arcade High Score Badge (Center) */}
           <div className="absolute left-1/2 -translate-x-1/2 -top-1 pointer-events-auto">
              <div className={`bg-amber-100/90 backdrop-blur border-2 border-amber-400 px-6 py-2 rounded-b-2xl shadow-xl flex items-center gap-3 transition-transform duration-300 ${score > personalBest ? 'scale-110 border-amber-500 bg-amber-200' : ''}`}>
                 <Award className={`w-5 h-5 ${score > personalBest ? 'text-amber-600 animate-bounce' : 'text-amber-500'}`} />
@@ -129,7 +158,6 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex flex-col md:flex-row gap-3 pointer-events-auto items-stretch">
-            {/* Scoreboard */}
             <div className="bg-white/80 backdrop-blur shadow-lg rounded-2xl p-4 flex gap-4 md:gap-5 items-center">
               <div className="flex flex-col">
                 <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider">Level</span>
@@ -154,7 +182,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Sliders */}
             <div className="flex flex-row gap-2 h-full">
                 <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[120px]">
                    <div className="flex items-center gap-2 mb-1">
@@ -169,21 +196,6 @@ const App: React.FC = () => {
                         soundService.playStretch();
                       }}
                       className="w-full h-1.5 bg-sky-100 rounded-lg appearance-none cursor-pointer accent-sky-500 pointer-events-auto"
-                   />
-                </div>
-                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[120px]">
-                   <div className="flex items-center gap-2 mb-1">
-                      <FastForward className="w-3.5 h-3.5 text-orange-500" />
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">B-Speed</span>
-                      <span className="ml-auto text-[10px] text-orange-600 font-bold">{balloonSpeedMultiplier.toFixed(1)}x</span>
-                   </div>
-                   <input 
-                      type="range" min="1.0" max="3.0" step="0.1" value={balloonSpeedMultiplier} 
-                      onChange={(e) => {
-                        setBalloonSpeedMultiplier(parseFloat(e.target.value));
-                        soundService.playStretch();
-                      }}
-                      className="w-full h-1.5 bg-sky-100 rounded-lg appearance-none cursor-pointer accent-orange-500 pointer-events-auto"
                    />
                 </div>
                 <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[120px]">
@@ -228,7 +240,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Main Game Area */}
       <GameCanvas 
         status={status}
         level={level}
@@ -239,11 +250,9 @@ const App: React.FC = () => {
         score={score}
         shotsUsed={shotsUsed}
         speedMultiplier={speedMultiplier}
-        balloonSpeedMultiplier={balloonSpeedMultiplier}
         manualWind={manualWind}
       />
 
-      {/* Overlays */}
       {status === GameStatus.START && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl text-center w-full max-w-md border-b-8 border-sky-100">
@@ -317,7 +326,7 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div className="bg-slate-50 p-4 rounded-2xl text-left border border-slate-100">
                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Up Next</p>
-                    <h3 className="text-base font-bold text-slate-700 truncate">{level.themeName || 'Mystery Skies'}</h3>
+                    <h3 className="text-base font-bold text-slate-700 truncate">{level.themeName}</h3>
                     <div className="flex flex-col gap-1 mt-2">
                         <div className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold text-slate-500 border border-slate-100">Target: {level.targetScore}</div>
                         {score >= personalBest && score > 0 && (

@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { GameStatus, LevelConfig, Balloon, Projectile, Point, Particle } from '../types';
-import { GRAVITY, ELASTICITY, MAX_STRETCH, FRICTION, BALLOON_COLORS } from '../constants';
+import { GRAVITY, ELASTICITY, MAX_STRETCH, BALLOON_COLORS } from '../constants';
 import { soundService } from '../services/soundService';
 
 interface GameCanvasProps {
@@ -14,17 +14,15 @@ interface GameCanvasProps {
   onLevelComplete: () => void;
   onGameOver: () => void;
   speedMultiplier: number;
-  balloonSpeedMultiplier: number;
   manualWind: number;
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  status, level, onScoreUpdate, onShot, onLevelComplete, onGameOver, score, shotsUsed, speedMultiplier, balloonSpeedMultiplier, manualWind
+  status, level, onScoreUpdate, onShot, onLevelComplete, onGameOver, score, shotsUsed, speedMultiplier, manualWind
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number | null>(null);
   
-  // Physics & Game Data
   const balloons = useRef<Balloon[]>([]);
   const projectiles = useRef<Projectile[]>([]);
   const particles = useRef<Particle[]>([]);
@@ -37,14 +35,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
 
-  // Initialize Balloons for a level
   const spawnBalloon = useCallback(() => {
-    const radius = 18 + Math.random() * 22; // Range 18 to 40
+    const radius = 18 + Math.random() * 22;
     const speed = level.balloonSpeedRange[0] + Math.random() * (level.balloonSpeedRange[1] - level.balloonSpeedRange[0]);
     const x = 300 + Math.random() * (window.innerWidth - 400);
-    
-    // Higher score for smaller balloons. 
-    // Smallest (18) -> ~200 points, Largest (40) -> ~50 points
     const points = Math.round((45 - radius) * 7.5);
 
     return {
@@ -88,15 +82,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (status !== GameStatus.PLAYING) return;
-    
-    // Fix: Prevent starting a new shot if the player has no shots left
     if (shotsUsed >= level.shotsAvailable) return;
 
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
     
     const x = clientX - rect.left;
     const y = clientY - rect.top;
@@ -112,8 +104,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
     
     const x = clientX - rect.left;
     const y = clientY - rect.top;
@@ -167,7 +159,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     balloons.current.forEach(b => {
       if (!b.isPopping) {
-        b.y -= b.speed * balloonSpeedMultiplier;
+        b.y -= b.speed;
         b.x += Math.sin(Date.now() / 500 + b.waveOffset) * 0.5 + level.wind + (manualWind * 0.5);
         
         if (b.y < -100) {
@@ -240,7 +232,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     ctx.font = '900 64px "Fredoka One", cursive';
     ctx.fillText('Fahdi balloon popper', ctx.canvas.width / 2, ctx.canvas.height / 2 - 20);
     ctx.font = '700 24px "Quicksand", sans-serif';
-    ctx.fillText('ver 1.1', ctx.canvas.width / 2, ctx.canvas.height / 2 + 30);
+    ctx.fillText('Standalone Edition', ctx.canvas.width / 2, ctx.canvas.height / 2 + 30);
     ctx.restore();
 
     ctx.fillStyle = '#fff';
@@ -294,11 +286,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
       ctx.fill();
-      
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.beginPath();
-      ctx.arc(p.x - 2, p.y - 2, 3, 0, Math.PI * 2);
-      ctx.fill();
     });
 
     balloons.current.forEach(b => {
@@ -329,18 +316,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.moveTo(-5, b.radius * 1.15);
       ctx.lineTo(5, b.radius * 1.15);
       ctx.lineTo(0, b.radius * 1.3);
-      ctx.fill();
-
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, b.radius * 1.3);
-      ctx.bezierCurveTo(5, b.radius * 1.6, -5, b.radius * 1.9, 0, b.radius * 2.2);
-      ctx.stroke();
-
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.beginPath();
-      ctx.ellipse(-b.radius * 0.4, -b.radius * 0.4, b.radius * 0.2, b.radius * 0.3, Math.PI / 4, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
@@ -400,14 +375,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     ctx.stroke();
   };
 
-  const animate = useCallback((time: number) => {
+  const animate = useCallback(() => {
     if (status !== GameStatus.PAUSED) {
       update();
     }
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) draw(ctx);
     requestRef.current = requestAnimationFrame(animate);
-  }, [status, level, score, shotsUsed, speedMultiplier, balloonSpeedMultiplier, manualWind]);
+  }, [status, level, score, shotsUsed, speedMultiplier, manualWind, spawnBalloon]);
 
   useEffect(() => {
     const handleResize = () => {
