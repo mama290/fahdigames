@@ -13,10 +13,11 @@ interface GameCanvasProps {
   onLevelComplete: () => void;
   onGameOver: () => void;
   speedMultiplier: number;
+  manualWind: number;
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  status, level, onScoreUpdate, onShot, onLevelComplete, onGameOver, score, shotsUsed, speedMultiplier
+  status, level, onScoreUpdate, onShot, onLevelComplete, onGameOver, score, shotsUsed, speedMultiplier, manualWind
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number | null>(null);
@@ -26,8 +27,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const projectiles = useRef<Projectile[]>([]);
   const particles = useRef<Particle[]>([]);
   const slingshot = useRef({
-    anchor: { x: 200, y: 0 }, // Moved from 250 to 200 for a better balanced position
-    drag: { x: 200, y: 0 },
+    anchor: { x: 100, y: 0 },
+    drag: { x: 100, y: 0 },
     isDragging: false,
     active: true,
   });
@@ -38,7 +39,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const spawnBalloon = useCallback(() => {
     const radius = 20 + Math.random() * 20;
     const speed = level.balloonSpeedRange[0] + Math.random() * (level.balloonSpeedRange[1] - level.balloonSpeedRange[0]);
-    // Adjusted balloon spawn area to account for shifted slingshot position (x=200)
     const x = 300 + Math.random() * (window.innerWidth - 400);
     
     return {
@@ -133,7 +133,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const dx = slingshot.current.anchor.x - slingshot.current.drag.x;
     const dy = slingshot.current.anchor.y - slingshot.current.drag.y;
     
-    // Apply speed multiplier to elasticity for launch velocity
     const elasticityWithMultiplier = ELASTICITY * speedMultiplier;
 
     projectiles.current.push({
@@ -157,13 +156,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     balloons.current.forEach(b => {
       if (!b.isPopping) {
         b.y -= b.speed;
-        b.x += Math.sin(Date.now() / 500 + b.waveOffset) * 0.5 + level.wind;
+        // Apply level wind + manual wind
+        b.x += Math.sin(Date.now() / 500 + b.waveOffset) * 0.5 + level.wind + (manualWind * 0.5);
         
         // Wrap around top
         if (b.y < -100) {
           b.y = window.innerHeight + 100;
           b.x = 300 + Math.random() * (window.innerWidth - 400);
         }
+        // Horizontal wrap
+        if (b.x < -100) b.x = window.innerWidth + 100;
+        if (b.x > window.innerWidth + 100) b.x = -100;
       } else {
         b.popProgress += 0.1;
       }
@@ -180,6 +183,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (p.trail.length > 15) p.trail.shift();
 
       p.vy += GRAVITY;
+      // Projectiles are also slightly pushed by manual wind
+      p.vx += manualWind * 0.05;
+      
       p.x += p.vx;
       p.y += p.vy;
 
@@ -203,7 +209,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     // Update Particles
     particles.current.forEach(p => {
-      p.x += p.vx;
+      p.x += p.vx + (manualWind * 0.2);
       p.y += p.vy;
       p.vy += 0.1; // gravity
       p.life -= 0.02;
@@ -226,7 +232,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const draw = (ctx: CanvasRenderingContext2D) => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    // Draw Background Title - Removed "game"
+    // Draw Background Title
     ctx.save();
     ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
     ctx.textAlign = 'center';
@@ -311,20 +317,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.globalAlpha = 1 - b.popProgress;
       }
       
-      // Balloon body
       ctx.fillStyle = b.color;
       ctx.beginPath();
       ctx.ellipse(0, 0, b.radius, b.radius * 1.2, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Triangle at bottom
       ctx.beginPath();
       ctx.moveTo(-5, b.radius * 1.15);
       ctx.lineTo(5, b.radius * 1.15);
       ctx.lineTo(0, b.radius * 1.3);
       ctx.fill();
 
-      // String
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -332,7 +335,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.bezierCurveTo(5, b.radius * 1.6, -5, b.radius * 1.9, 0, b.radius * 2.2);
       ctx.stroke();
 
-      // Highlight
       ctx.fillStyle = 'rgba(255,255,255,0.3)';
       ctx.beginPath();
       ctx.ellipse(-b.radius * 0.4, -b.radius * 0.4, b.radius * 0.2, b.radius * 0.3, Math.PI / 4, 0, Math.PI * 2);
@@ -351,7 +353,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     });
     ctx.globalAlpha = 1.0;
 
-    // Draw front Elastics (over the projectile if dragging)
+    // Draw front Elastics
     if (slingshot.current.isDragging) {
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 4;
@@ -360,7 +362,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.lineTo(slingshot.current.drag.x, slingshot.current.drag.y);
       ctx.stroke();
       
-      // Projectile in slingshot
       ctx.fillStyle = '#334155';
       ctx.beginPath();
       ctx.arc(slingshot.current.drag.x, slingshot.current.drag.y, 10, 0, Math.PI * 2);
@@ -382,6 +383,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.moveTo(px, py);
       for (let i = 0; i < 30; i++) {
         pvy += GRAVITY;
+        // Prediction also accounts for wind
+        pvx += manualWind * 0.05;
         px += pvx;
         py += pvy;
         ctx.lineTo(px, py);
@@ -404,15 +407,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) draw(ctx);
     requestRef.current = requestAnimationFrame(animate);
-  }, [status, level, score, shotsUsed, speedMultiplier]);
+  }, [status, level, score, shotsUsed, speedMultiplier, manualWind]);
 
   useEffect(() => {
     const handleResize = () => {
       if (canvasRef.current) {
         canvasRef.current.width = window.innerWidth;
         canvasRef.current.height = window.innerHeight;
-        // Adjusted anchor.x to 200 in resize handler as well
-        slingshot.current.anchor = { x: 200, y: window.innerHeight - 200 };
+        slingshot.current.anchor = { x: 100, y: window.innerHeight - 200 };
         slingshot.current.drag = { ...slingshot.current.anchor };
       }
     };

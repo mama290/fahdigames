@@ -33,12 +33,12 @@ export const getNextLevelConfig = async (currentLevel: number) => {
         Return a JSON object with the following properties:
         - balloonCount: number
         - balloonSpeedRange: [number, number] (min speed, max speed)
-        - targetScore: number
-        - shotsAvailable: number
+        - targetScore: number (Set this high for long levels, e.g., if current level target was 2000, make next level 4000+)
+        - shotsAvailable: number (Give enough shots for the score)
         - wind: number (-2 to 2)
         - themeName: string (a funny name for the level)
         
-        Increase difficulty slightly.`,
+        Increase difficulty and target score significantly.`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -60,8 +60,8 @@ export const getNextLevelConfig = async (currentLevel: number) => {
       return {
         balloonCount: 8 + currentLevel * 2,
         balloonSpeedRange: [1 + currentLevel * 0.2, 2 + currentLevel * 0.3],
-        targetScore: 500 + currentLevel * 200,
-        shotsAvailable: 10,
+        targetScore: 2000 + (currentLevel * 1500),
+        shotsAvailable: 20 + (currentLevel * 5),
         wind: Math.random() * 2 - 1,
         themeName: `Level ${currentLevel + 1}`
       };

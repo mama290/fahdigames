@@ -4,7 +4,7 @@ import GameCanvas from './components/GameCanvas';
 import { GameStatus, LevelConfig } from './types';
 import { INITIAL_LEVEL } from './constants';
 import { getOracleAdvice, getNextLevelConfig } from './services/geminiService';
-import { Target, Zap, Trophy, RefreshCw, Play, Sparkles, Gauge } from 'lucide-react';
+import { Target, Zap, Trophy, RefreshCw, Play, Sparkles, Gauge, Wind } from 'lucide-react';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<GameStatus>(GameStatus.START);
@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [advice, setAdvice] = useState("Pull back the string and let fate fly!");
   const [loading, setLoading] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
+  const [manualWind, setManualWind] = useState(0.0);
 
   const fetchAdvice = async () => {
     const msg = await getOracleAdvice(score, level.shotsAvailable - shotsUsed, level.number);
@@ -53,8 +54,8 @@ const App: React.FC = () => {
       {/* HUD */}
       {status === GameStatus.PLAYING && (
         <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-start pointer-events-none">
-          {/* Top Left Controls Wrapper */}
-          <div className="flex flex-col gap-2 pointer-events-auto">
+          {/* Main Controls Row */}
+          <div className="flex flex-row gap-3 pointer-events-auto items-stretch">
             {/* Scoreboard */}
             <div className="bg-white/80 backdrop-blur shadow-lg rounded-2xl p-4 flex gap-6 items-center">
               <div className="flex flex-col">
@@ -75,36 +76,52 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Speed Slider - Now moved below scoreboard */}
-            <div className="bg-white/90 backdrop-blur p-4 rounded-2xl shadow-xl border border-sky-100 min-w-[200px] w-full max-w-sm">
-               <div className="flex items-center gap-2 mb-2">
-                  <Gauge className="w-4 h-4 text-sky-500" />
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Sling Power</span>
-                  <span className="ml-auto text-sky-600 font-bold">{speedMultiplier.toFixed(1)}x</span>
-               </div>
-               <input 
-                  type="range" 
-                  min="0.5" 
-                  max="2.0" 
-                  step="0.1" 
-                  value={speedMultiplier} 
-                  onChange={(e) => setSpeedMultiplier(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-sky-100 rounded-lg appearance-none cursor-pointer accent-sky-500"
-               />
-               <div className="flex justify-between mt-1 px-1">
-                  <span className="text-[10px] text-slate-400 font-bold italic">LO</span>
-                  <span className="text-[10px] text-slate-400 font-bold italic">HI</span>
-               </div>
+            {/* Sliders Side-by-Side with Score */}
+            <div className="flex flex-row gap-2 h-full">
+                {/* Speed Slider */}
+                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[160px]">
+                   <div className="flex items-center gap-2 mb-1">
+                      <Gauge className="w-3.5 h-3.5 text-sky-500" />
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Power</span>
+                      <span className="ml-auto text-[10px] text-sky-600 font-bold">{speedMultiplier.toFixed(1)}x</span>
+                   </div>
+                   <input 
+                      type="range" 
+                      min="0.5" 
+                      max="2.0" 
+                      step="0.1" 
+                      value={speedMultiplier} 
+                      onChange={(e) => setSpeedMultiplier(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-sky-100 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                   />
+                </div>
+
+                {/* Wind Slider */}
+                <div className="bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-sky-100 flex flex-col justify-center min-w-[160px]">
+                   <div className="flex items-center gap-2 mb-1">
+                      <Wind className="w-3.5 h-3.5 text-sky-500" />
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Wind</span>
+                      <span className="ml-auto text-[10px] text-sky-600 font-bold">{manualWind > 0 ? '→' : manualWind < 0 ? '←' : ''} {Math.abs(manualWind).toFixed(1)}</span>
+                   </div>
+                   <input 
+                      type="range" 
+                      min="-3.0" 
+                      max="3.0" 
+                      step="0.2" 
+                      value={manualWind} 
+                      onChange={(e) => setManualWind(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-sky-100 rounded-lg appearance-none cursor-pointer accent-sky-600"
+                   />
+                </div>
             </div>
           </div>
 
-          {/* Oracle Advice (Top Right) */}
-          <div className="max-w-xs bg-indigo-900/90 text-white p-4 rounded-2xl shadow-2xl border-2 border-indigo-400 pointer-events-auto">
-             <div className="flex items-center gap-2 mb-1">
+          {/* Oracle Advice (Top Right) - Advice text removed as requested */}
+          <div className="bg-indigo-900/90 text-white p-3 rounded-2xl shadow-2xl border-2 border-indigo-400 pointer-events-auto">
+             <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-yellow-400" />
                 <span className="text-[10px] uppercase font-bold tracking-tighter text-indigo-300">The Balloon Oracle</span>
              </div>
-             <p className="text-sm italic font-medium leading-tight">"{advice}"</p>
           </div>
         </div>
       )}
@@ -120,6 +137,7 @@ const App: React.FC = () => {
         score={score}
         shotsUsed={shotsUsed}
         speedMultiplier={speedMultiplier}
+        manualWind={manualWind}
       />
 
       {/* Overlays */}
@@ -131,7 +149,7 @@ const App: React.FC = () => {
             </div>
             <h1 className="text-5xl font-black text-sky-900 mb-2">Fahdi</h1>
             <h2 className="text-2xl font-bold text-sky-400 mb-6 italic">Slingshot</h2>
-            <p className="text-slate-600 mb-8 font-medium">Pop floating balloons to advance! The Balloon Oracle is watching your every shot.</p>
+            <p className="text-slate-600 mb-8 font-medium">Pop floating balloons to advance! Use the power and wind sliders to master the skies.</p>
             <button 
               onClick={startGame}
               className="group relative w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-4 px-8 rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-[0_6px_0_0_rgba(14,165,233,1)] hover:shadow-[0_4px_0_0_rgba(14,165,233,1)]"

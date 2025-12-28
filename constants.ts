@@ -16,9 +16,8 @@ export const INITIAL_LEVEL: any = {
   number: 1,
   balloonCount: 8,
   balloonSpeedRange: [1, 2],
-  targetScore: 500,
-  shotsAvailable: 10,
+  targetScore: 2000,
+  shotsAvailable: 20,
   wind: 0,
-  // Added default themeName for consistency
   themeName: 'Sunny Skies',
 };
